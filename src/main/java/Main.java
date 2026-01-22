@@ -1,74 +1,53 @@
-import java.util.List;
+import java.util.ArrayList;
 
 public class Main {
 
     public static void main(String[] args) {
         DataRetriever dataRetriever = new DataRetriever();
 
+        System.out.println("** TESTS additionnels getDishCost() et getGrossMargin() ****\n");
+
+        System.out.println("A) getDishCost() et getGrossMargin() pour plat existant (ID=1) :");
         try {
-            Ingredient ingredient1 = new Ingredient();
-            ingredient1.setName("Concombre");
-            ingredient1.setCategory(CategoryEnum.VEGETABLE);
-            ingredient1.setPrice(700.0);
-
-            Ingredient ingredient2 = new Ingredient();
-            ingredient2.setName("Fromage Feta");
-            ingredient2.setCategory(CategoryEnum.DAIRY);
-            ingredient2.setPrice(1500.0);
-
-            List<Ingredient> newIngredients = List.of(ingredient1, ingredient2);
-            List<Ingredient> savedIngredients = dataRetriever.createIngredients(newIngredients);
-
-            System.out.println("=== INGREDIENTS SAUVEGARDÉS ===");
-            for (Ingredient ing : savedIngredients) {
-                System.out.println(
-                        "ID: " + ing.getId() +
-                                " | Name: " + ing.getName() +
-                                " | Category: " + ing.getCategory() +
-                                " | Price: " + ing.getPrice()
-                );
+            Dish d1 = dataRetriever.findDishById(1);
+            System.out.println("Plat: " + d1.getName());
+            System.out.println("Coût des ingrédients (getDishCost): " + d1.getDishCost());
+            try {
+                System.out.println("Marge brute (getGrossMargin): " + d1.getGrossMargin());
+            } catch (RuntimeException e) {
+                System.out.println("getGrossMargin a levé RuntimeException: " + e.getMessage());
             }
-
-            Dish dish = new Dish();
-            dish.setName("Salade test JDBC");
-            dish.setDishType(DishTypeEnum.START);
-            dish.setPrice(4000.0);
-
-            DishIngredient di1 = new DishIngredient();
-            di1.setIngredient(savedIngredients.get(0));
-            di1.setQuantityRequired(0.25);
-            di1.setUnit(UnitTypeEnum.KG);
-
-            DishIngredient di2 = new DishIngredient();
-            di2.setIngredient(savedIngredients.get(1));
-            di2.setQuantityRequired(0.15);
-            di2.setUnit(UnitTypeEnum.KG);
-
-            dish.setIngredients(List.of(di1, di2));
-            Dish savedDish = dataRetriever.saveDish(dish);
-
-            System.out.println("\n=== PLAT SAUVEGARDÉ ===");
-            System.out.println("ID      : " + savedDish.getId());
-            System.out.println("Name    : " + savedDish.getName());
-            System.out.println("Type    : " + savedDish.getDishType());
-            System.out.println("Price   : " + savedDish.getPrice());
-
-            System.out.println("\n=== INGREDIENTS DU PLAT ===");
-            for (DishIngredient di : savedDish.getIngredients()) {
-                System.out.println(
-                        "- " + di.getIngredient().getName() +
-                                " | Quantity: " + di.getQuantityRequired() +
-                                " | Unit: " + di.getUnit() +
-                                " | Price/unit: " + di.getIngredient().getPrice()
-                );
-            }
-
-            System.out.println("\n=== COST & MARGIN ===");
-            System.out.println("Dish cost    : " + savedDish.getDishCost());
-            System.out.println("Gross margin : " + savedDish.getGrossMargin());
-
-        } catch (RuntimeException e) {
-            e.printStackTrace();
+        } catch (Exception e) {
+            System.out.println("Exception: " + e.getMessage());
         }
+        System.out.println();
+
+        System.out.println("B) getDishCost() pour plat sans prix (ID=3) et vérification d'exception pour getGrossMargin() :");
+        try {
+            Dish d3 = dataRetriever.findDishById(3);
+            System.out.println("Plat: " + d3.getName());
+            System.out.println("Coût des ingrédients (getDishCost): " + d3.getDishCost());
+            try {
+                double margin = d3.getGrossMargin();
+                System.out.println("ERREUR: getGrossMargin n'a pas levé d'exception et a retourné: " + margin);
+            } catch (RuntimeException e) {
+                System.out.println("getGrossMargin a bien levé RuntimeException: " + e.getMessage());
+            }
+        } catch (Exception e) {
+            System.out.println("Exception: " + e.getMessage());
+        }
+        System.out.println();
+
+        System.out.println("C) Plat sans ingrédients : coût attendu = 0, marge = prix");
+        try {
+            Dish temp = new Dish(0, "Plat sans ingr", DishTypeEnum.START, 1000.0, new ArrayList<>());
+            Dish savedTemp = dataRetriever.saveDish(temp);
+            System.out.println("Plat créé: " + savedTemp.getName() + " (ID: " + savedTemp.getId() + ")");
+            System.out.println("Coût des ingrédients (getDishCost): " + savedTemp.getDishCost());
+            System.out.println("Marge brute (getGrossMargin): " + savedTemp.getGrossMargin());
+        } catch (Exception e) {
+            System.out.println("Exception: " + e.getMessage());
+        }
+        System.out.println();
     }
 }
