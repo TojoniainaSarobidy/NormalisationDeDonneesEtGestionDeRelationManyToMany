@@ -1,7 +1,9 @@
 import java.sql.*;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class DataRetriever {
 
@@ -301,31 +303,45 @@ public class DataRetriever {
         if (id == null) {
             throw new IllegalArgumentException("Id cannot be null");
         }
-        String sql = """
-                select id, id_ingredient, quantity, type, unit, creation_datetime
-                from stock_movement where id_ingredient = ?;
-                """;
-        Connection connection = null;
-        List<StockMovement> stockMovements = new ArrayList<>();
-        try {
-            connection = DBConnection.getDBConnection();
-            PreparedStatement ps = connection.prepareStatement(sql);
-            ps.setInt(1, id);
 
+        String sql = """
+                    SELECT id, quantity, type, creation_datetime
+                    FROM stock_movement
+                    WHERE id_ingredient = ?
+                """;
+
+        List<StockMovement> stockMovements = new ArrayList<>();
+
+        try (Connection connection = DBConnection.getDBConnection();
+             PreparedStatement ps = connection.prepareStatement(sql)) {
+
+            ps.setInt(1, id);
             ResultSet rs = ps.executeQuery();
 
             while (rs.next()) {
                 StockMovement stockMovement = new StockMovement();
                 stockMovement.setId(rs.getInt("id"));
-                stockMovement.setType(StockMovement.MovementTypeEnum.valueOf(rs.getString("type")));
-                stockMovement.setCreationDatetime(rs.getTimestamp("creation_datetime").toInstant());
+                stockMovement.setType(
+                        StockMovement.MovementTypeEnum.valueOf(rs.getString("type"))
+                );
+                stockMovement.setCreationDatetime(
+                        rs.getTimestamp("creation_datetime").toInstant()
+                );
+
+                StockValue stockValue = new StockValue();
+                stockValue.setQuantity(rs.getDouble("quantity"));
+                stockMovement.setValue(stockValue);
+
                 stockMovements.add(stockMovement);
             }
+
             return stockMovements;
-        } catch (SQLException error) {
-            throw new RuntimeException(error);
+
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
         }
     }
+
 
     public Order saveOrder(Order orderToSave) {
         try (Connection conn = new DBConnection().getDBConnection()) {
@@ -392,7 +408,7 @@ public class DataRetriever {
     }
 
     public Order findOrderByReference(String reference) {
-        if (reference == null || reference.isBlank()) {
+        if (reference == null || reference.isEmpty()) {
             throw new IllegalArgumentException("La référence ne peut pas être nulle ou vide");
         }
         String orderSql = "SELECT id, reference, creation_datetime FROM \"Order\" WHERE reference = ?";
@@ -426,6 +442,55 @@ public class DataRetriever {
             return order;
         } catch (SQLException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+
+    public class UnitConverter {
+        private static final Map<String, Map<String, Double>> conversionMap = new HashMap<>();
+
+        static {
+            // Tomate
+            Map<String, Double> tomateMap = new HashMap<>();
+            tomateMap.put("KG", 1.0);
+            tomateMap.put("PCS", 0.1);
+            conversionMap.put("Tomate", tomateMap);
+
+            // Laitue
+            Map<String, Double> laitueMap = new HashMap<>();
+            laitueMap.put("KG", 1.0);
+            laitueMap.put("PCS", 0.5);
+            conversionMap.put("Laitue", laitueMap);
+
+            // Chocolat
+            Map<String, Double> chocolatMap = new HashMap<>();
+            chocolatMap.put("KG", 1.0);
+            chocolatMap.put("PCS", 0.1);
+            chocolatMap.put("L", 0.4);
+            conversionMap.put("Chocolat", chocolatMap);
+
+            // Poulet
+            Map<String, Double> pouletMap = new HashMap<>();
+            pouletMap.put("KG", 1.0);
+            pouletMap.put("PCS", 0.125);
+            conversionMap.put("Poulet", pouletMap);
+
+            // Beurre
+            Map<String, Double> beurreMap = new HashMap<>();
+            beurreMap.put("KG", 1.0);
+            beurreMap.put("PCS", 0.25);
+            beurreMap.put("L", 0.2);
+            conversionMap.put("Beurre", beurreMap);
+        }
+
+        public static double convertToReference(String ingredientName, double quantity, String fromUnit) {
+            Map<String, Double> ingredientMap = conversionMap.get(ingredientName);
+            if (ingredientMap == null || !ingredientMap.containsKey(fromUnit)) {
+                throw new RuntimeException(
+                        "Conversion impossible pour " + ingredientName + " depuis l'unité " + fromUnit
+                );
+            }
+            return quantity * ingredientMap.get(fromUnit);
         }
     }
 }

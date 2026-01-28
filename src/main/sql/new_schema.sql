@@ -44,7 +44,7 @@ CREATE TABLE dish (
 
 CREATE TABLE "Order" (
     id SERIAL PRIMARY KEY,
-    reference VARCHAR(8),
+    reference VARCHAR(100),
     creation_datetime TIMESTAMP
 );
 

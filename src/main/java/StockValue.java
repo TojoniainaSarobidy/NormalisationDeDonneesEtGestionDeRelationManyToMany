@@ -2,9 +2,9 @@ import java.util.Objects;
 
 public class StockValue {
     private Double quantity;
-    private DishIngredient unit;
+    private String unit;
 
-    public StockValue(Double quantity, DishIngredient unit) {
+    public StockValue(Double quantity, String unit) {
         this.quantity = quantity;
         this.unit = unit;
     }
@@ -33,11 +33,19 @@ public class StockValue {
         this.quantity = quantity;
     }
 
-    public DishIngredient getUnit() {
+    public String getUnit() {
         return unit;
     }
 
-    public void setUnit(DishIngredient unit) {
+    public void setUnit(String unit) {
         this.unit = unit;
+    }
+
+    @Override
+    public String toString() {
+        return "StockValue{" +
+                "quantity=" + quantity +
+                ", unit=" + unit +
+                '}';
     }
 }

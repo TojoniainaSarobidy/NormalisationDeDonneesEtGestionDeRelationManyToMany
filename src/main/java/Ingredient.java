@@ -2,7 +2,6 @@ import java.util.List;
 import java.util.Objects;
 
 public class Ingredient {
-    public static DishIngredient CategoryEnum;
     private Integer id;
     private String name;
     private Double price;
@@ -18,6 +17,7 @@ public class Ingredient {
         this.category = category;
     }
 
+    // Getters et setters
     public Integer getId() {
         return id;
     }
@@ -50,6 +50,15 @@ public class Ingredient {
         this.category = category;
     }
 
+    public List<StockMovement> getStockMovementList() {
+        return stockMovementList;
+    }
+
+    public void setStockMovementList(List<StockMovement> stockMovementList) {
+        this.stockMovementList = stockMovementList;
+    }
+
+    // equals et hashCode basés sur l'id
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -63,19 +72,13 @@ public class Ingredient {
         return Objects.hash(id);
     }
 
-    public static DishIngredient getCategoryEnum() {
-        return CategoryEnum;
-    }
-
-    public static void setCategoryEnum(DishIngredient categoryEnum) {
-        CategoryEnum = categoryEnum;
-    }
-
-    public List<StockMovement> getStockMovementList() {
-        return stockMovementList;
-    }
-
-    public void setStockMovementList(List<StockMovement> stockMovementList) {
-        this.stockMovementList = stockMovementList;
+    @Override
+    public String toString() {
+        return "Ingredient{" +
+                "id=" + id +
+                ", name='" + name + '\'' +
+                ", price=" + price +
+                ", category=" + category +
+                '}';
     }
 }
