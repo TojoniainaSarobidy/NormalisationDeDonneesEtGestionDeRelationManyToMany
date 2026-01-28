@@ -41,3 +41,18 @@ CREATE TABLE dish (
     dish_type dish_type,
     price NUMERIC(10,2)
 );
+
+CREATE TABLE "Order" (
+    id SERIAL PRIMARY KEY,
+    reference VARCHAR(8),
+    creation_datetime TIMESTAMP
+);
+
+CREATE TABLE DishOrder (
+    id SERIAL PRIMARY KEY,
+    id_order int,
+    id_dish int,
+    quantity numeric(10,2),
+    CONSTRAINT fk_order FOREIGN KEY (id_order) REFERENCES "Order"(id),
+    CONSTRAINT fk_dish FOREIGN KEY (id_dish) REFERENCES dish(id)
+);

@@ -10,8 +10,7 @@ public class Dish {
 
     public Dish() {}
 
-    public Dish(Integer id, String name, DishTypeEnum dishType,
-                Double price, List<DishIngredient> ingredients) {
+    public Dish(Integer id, String name, DishTypeEnum dishType, Double price, List<DishIngredient> ingredients) {
         this.id = id;
         this.name = name;
         this.dishType = dishType;

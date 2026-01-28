@@ -1,10 +1,13 @@
+import java.util.List;
 import java.util.Objects;
 
 public class Ingredient {
+    public static DishIngredient CategoryEnum;
     private Integer id;
     private String name;
     private Double price;
     private CategoryEnum category;
+    private List<StockMovement> stockMovementList;
 
     public Ingredient() {}
 
@@ -58,5 +61,21 @@ public class Ingredient {
     @Override
     public int hashCode() {
         return Objects.hash(id);
+    }
+
+    public static DishIngredient getCategoryEnum() {
+        return CategoryEnum;
+    }
+
+    public static void setCategoryEnum(DishIngredient categoryEnum) {
+        CategoryEnum = categoryEnum;
+    }
+
+    public List<StockMovement> getStockMovementList() {
+        return stockMovementList;
+    }
+
+    public void setStockMovementList(List<StockMovement> stockMovementList) {
+        this.stockMovementList = stockMovementList;
     }
 }
