@@ -5,7 +5,7 @@ public class DishOrder {
     private Dish dish;
     private Integer quantity;
 
-    private DishOrder() {
+    public DishOrder() {
     }
 
     public DishOrder(int id, Dish dish, Integer quantity) {
