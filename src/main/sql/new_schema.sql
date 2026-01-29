@@ -56,3 +56,16 @@ CREATE TABLE DishOrder (
     CONSTRAINT fk_order FOREIGN KEY (id_order) REFERENCES "Order"(id),
     CONSTRAINT fk_dish FOREIGN KEY (id_dish) REFERENCES dish(id)
 );
+
+CREATE TABLE restaurant_table (
+    id SERIAL PRIMARY KEY,
+    table_number INTEGER NOT NULL UNIQUE
+);
+
+
+ALTER TABLE DishOrder
+ADD COLUMN table_id INTEGER,
+ADD COLUMN installation_datetime TIMESTAMP,
+ADD COLUMN departure_datetime TIMESTAMP,
+ADD CONSTRAINT fk_order_table
+    FOREIGN KEY (table_id) REFERENCES restaurant_table(id);

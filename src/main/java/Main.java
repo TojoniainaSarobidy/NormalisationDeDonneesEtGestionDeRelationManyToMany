@@ -94,7 +94,7 @@ public class Main {
                     .forEach(System.out::println);
 
             Order foundOrder = dataRetriever.findOrderByReference(savedOrder.getReference());
-            System.out.println("\n🔍 Commande retrouvée");
+            System.out.println(" Commande retrouvée");
             System.out.println(foundOrder);
 
         } catch (RuntimeException e) {
@@ -102,7 +102,7 @@ public class Main {
         } */
 
 
-public class Main {
+/* public class Main {
     public static void main(String[] args) {
 
 
@@ -177,5 +177,76 @@ public class Main {
 
         sm.setCreationDatetime(Instant.now());
         return sm;
+    }
+} */
+
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.List;
+
+public class Main {
+    public static void main(String[] args) {
+
+        DataRetriever dr = new DataRetriever();
+
+        // --- Test 1 : création d'une commande sur une table disponible ---
+        try {
+            // On récupère la table 3 depuis la base
+            RestaurantTable table3 = dr.findTableByNumber(3);
+
+            Order order1 = new Order();
+            order1.setReference("CMD-001");
+            order1.setCreationDatetime(Instant.now());
+            order1.setTableId(table3.getId());
+            order1.setInstallationDatetime(Instant.now());
+            order1.setDepartureDatetime(Instant.now().plus(2, ChronoUnit.HOURS));
+
+            // Ajout de plats
+            Dish dish1 = dr.findDishById(1); // Pizza Margherita
+            DishOrder dishOrder1 = new DishOrder();
+            dishOrder1.setDish(dish1);
+            dishOrder1.setQuantity(2);
+
+            Dish dish2 = dr.findDishById(2); // Salade fraiche
+            DishOrder dishOrder2 = new DishOrder();
+            dishOrder2.setDish(dish2);
+            dishOrder2.setQuantity(1);
+
+            order1.setDishOrders(List.of(dishOrder1, dishOrder2));
+
+            Order saved = dr.saveOrder(order1);
+            System.out.println("Commande créée: " + saved.getReference());
+
+        } catch (RuntimeException e) {
+            System.err.println("Test 1 échoué: " + e.getMessage());
+        }
+
+        // --- Test 2 : création d'une commande sur une table occupée (devrait échouer) ---
+        try {
+            RestaurantTable table1 = dr.findTableByNumber(1);
+
+            Order order2 = new Order();
+            order2.setReference("CMD-002");
+            order2.setCreationDatetime(Instant.now());
+            order2.setTableId(table1.getId());
+            order2.setInstallationDatetime(Instant.now());
+            order2.setDepartureDatetime(Instant.now().plus(1, ChronoUnit.HOURS));
+
+            // Même plat pour simplification
+            Dish dish1 = dr.findDishById(1);
+            DishOrder dishOrder1 = new DishOrder();
+            dishOrder1.setDish(dish1);
+            dishOrder1.setQuantity(1);
+
+            order2.setDishOrders(List.of(dishOrder1));
+
+            dr.saveOrder(order2);
+
+            System.out.println("Test 2 devrait échouer mais n'a pas échoué");
+
+        } catch (RuntimeException e) {
+            System.out.println("Test 2 réussi : " + e.getMessage());
+        }
     }
 }

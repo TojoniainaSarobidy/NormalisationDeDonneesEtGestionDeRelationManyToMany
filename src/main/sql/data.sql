@@ -18,3 +18,6 @@ INSERT INTO dishIngredient(id_dish, id_ingredient, quantity_required, unit) VALU
 (2, 3, 1.00, 'KG'),
 (4, 4, 0.30, 'KG'),
 (4, 5, 0.20, 'KG');
+
+INSERT INTO restaurant_table(table_number)  VALUES (1),(2),(3),(4);
+

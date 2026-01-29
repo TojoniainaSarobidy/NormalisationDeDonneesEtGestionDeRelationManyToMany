@@ -344,68 +344,148 @@ public class DataRetriever {
 
 
     public Order saveOrder(Order orderToSave) {
-        try (Connection conn = new DBConnection().getDBConnection()) {
-            conn.setAutoCommit(false);
-            String orderSql = "INSERT INTO \"Order\" (reference, creation_datetime) VALUES (?, ?) RETURNING id";
-            try (PreparedStatement psOrder = conn.prepareStatement(orderSql)) {
-                psOrder.setString(1, orderToSave.getReference());
-                psOrder.setTimestamp(2, Timestamp.from(Instant.now()));
 
-                ResultSet rs = psOrder.executeQuery();
-                if (!rs.next()) {
-                    throw new RuntimeException("Impossible de créer la commande");
+        DataRetriever dataRetriever = this;
+
+        try (Connection conn = DBConnection.getDBConnection()) {
+            conn.setAutoCommit(false);
+            if (orderToSave.getTableId() == null) {
+                throw new RuntimeException("La table est obligatoire");
+            }
+
+            if (!isTableAvailable(
+                    conn,
+                    orderToSave.getTableId(),
+                    orderToSave.getInstallationDatetime(),
+                    orderToSave.getDepartureDatetime()
+            )) {
+
+                List<Integer> availableTables =
+                        findAvailableTableNumbers(
+                                conn,
+                                orderToSave.getInstallationDatetime(),
+                                orderToSave.getDepartureDatetime()
+                        );
+
+                if (availableTables.isEmpty()) {
+                    throw new RuntimeException(
+                            "Aucune table n'est disponible pour ce créneau horaire"
+                    );
                 }
-                int orderId = rs.getInt(1);
-                orderToSave.setId(orderId);
+
+                throw new RuntimeException(
+                        "La table demandée n'est pas disponible. Tables disponibles : " + availableTables
+                );
             }
             for (DishOrder dishOrder : orderToSave.getDishOrders()) {
-                Dish dish = new DataRetriever().findDishById(dishOrder.getDish().getId());
-                int quantityOrdered = dishOrder.getQuantity().intValue();
+
+                Dish dish = dataRetriever.findDishById(dishOrder.getDish().getId());
+                int quantityOrdered = dishOrder.getQuantity();
+
                 for (DishIngredient di : dish.getIngredients()) {
-                    Ingredient ingredient = new DataRetriever().findIngredientById(di.getIngredient().getId());
+
+                    Ingredient ingredient =
+                            dataRetriever.findIngredientById(di.getIngredient().getId());
+
                     double currentStock = ingredient.getStockMovementList().stream()
-                            .mapToDouble(sm -> sm.getType() == StockMovement.MovementTypeEnum.IN
-                                    ? sm.getValue().getQuantity()
-                                    : -sm.getValue().getQuantity())
+                            .mapToDouble(sm ->
+                                    sm.getType() == StockMovement.MovementTypeEnum.IN
+                                            ? sm.getValue().getQuantity()
+                                            : -sm.getValue().getQuantity()
+                            )
                             .sum();
-                    double quantityNeeded = di.getQuantityRequired() * quantityOrdered;
+
+                    double quantityNeeded =
+                            di.getQuantityRequired() * quantityOrdered;
 
                     if (currentStock < quantityNeeded) {
-                        throw new RuntimeException("Stock insuffisant pour l'ingrédient : " + ingredient.getName());
+                        throw new RuntimeException(
+                                "Stock insuffisant pour l'ingrédient : " + ingredient.getName()
+                        );
                     }
                 }
             }
-            String dishOrderSql = "INSERT INTO DishOrder (id_order, id_dish, quantity) VALUES (?, ?, ?)";
-            try (PreparedStatement psDishOrder = conn.prepareStatement(dishOrderSql)) {
+
+            String orderSql = """
+            INSERT INTO "Order"
+            (reference, creation_datetime, table_id, installation_datetime, departure_datetime)
+            VALUES (?, ?, ?, ?, ?)
+            RETURNING id
+        """;
+
+            try (PreparedStatement psOrder = conn.prepareStatement(orderSql)) {
+
+                psOrder.setString(1, orderToSave.getReference());
+                psOrder.setTimestamp(2, Timestamp.from(Instant.now()));
+                psOrder.setInt(3, orderToSave.getTableId());
+                psOrder.setTimestamp(4,
+                        Timestamp.from(orderToSave.getInstallationDatetime()));
+                psOrder.setTimestamp(5,
+                        Timestamp.from(orderToSave.getDepartureDatetime()));
+
+                ResultSet rs = psOrder.executeQuery();
+
+                if (!rs.next()) {
+                    throw new RuntimeException("Impossible de créer la commande");
+                }
+
+                orderToSave.setId(rs.getInt(1));
+            }
+
+            String dishOrderSql = """
+            INSERT INTO DishOrder (id_order, id_dish, quantity)
+            VALUES (?, ?, ?)
+        """;
+
+            try (PreparedStatement psDishOrder =
+                         conn.prepareStatement(dishOrderSql)) {
+
                 for (DishOrder dishOrder : orderToSave.getDishOrders()) {
                     psDishOrder.setInt(1, orderToSave.getId());
                     psDishOrder.setInt(2, dishOrder.getDish().getId());
-                    psDishOrder.setDouble(3, dishOrder.getQuantity());
+                    psDishOrder.setInt(3, dishOrder.getQuantity());
                     psDishOrder.addBatch();
                 }
+
                 psDishOrder.executeBatch();
             }
-            String stockSql = "INSERT INTO stock_movement (id_ingredient, quantity, type, creation_datetime) VALUES (?, ?, 'OUT', ?)";
-            try (PreparedStatement psStock = conn.prepareStatement(stockSql)) {
+            String stockSql = """
+            INSERT INTO stock_movement
+            (id_ingredient, quantity, type, creation_datetime)
+            VALUES (?, ?, 'OUT', ?)
+        """;
+
+            try (PreparedStatement psStock =
+                         conn.prepareStatement(stockSql)) {
+
                 for (DishOrder dishOrder : orderToSave.getDishOrders()) {
-                    Dish dish = new DataRetriever().findDishById(dishOrder.getDish().getId());
-                    int quantityOrdered = dishOrder.getQuantity().intValue();
+
+                    Dish dish =
+                            dataRetriever.findDishById(dishOrder.getDish().getId());
+                    int quantityOrdered = dishOrder.getQuantity();
+
                     for (DishIngredient di : dish.getIngredients()) {
-                        double quantityToRemove = di.getQuantityRequired() * quantityOrdered;
+
+                        double quantityToRemove =
+                                di.getQuantityRequired() * quantityOrdered;
+
                         psStock.setInt(1, di.getIngredient().getId());
                         psStock.setDouble(2, quantityToRemove);
                         psStock.setTimestamp(3, Timestamp.from(Instant.now()));
                         psStock.addBatch();
                     }
                 }
+
                 psStock.executeBatch();
             }
             conn.commit();
             return orderToSave;
-        } catch (SQLException e) {
+
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
+
 
     public Order findOrderByReference(String reference) {
         if (reference == null || reference.isEmpty()) {
@@ -444,6 +524,59 @@ public class DataRetriever {
             throw new RuntimeException(e);
         }
     }
+
+    public RestaurantTable findTableByNumber(int number) {
+        String sql = """
+        SELECT id, table_number
+        FROM restaurant_table
+        WHERE table_number = ?
+    """;
+
+        try (Connection conn = DBConnection.getDBConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setInt(1, number);
+            ResultSet rs = ps.executeQuery();
+
+            if (!rs.next()) {
+                throw new RuntimeException("Table non trouvée pour le numéro : " + number);
+            }
+
+            RestaurantTable table = new RestaurantTable();
+            table.setId(rs.getInt("id"));
+            table.setNumber(rs.getInt("table_number"));
+
+            // Optionnel : récupérer les commandes associées à cette table
+            String orderSql = """
+            SELECT id, reference, creation_datetime, installation_datetime, departure_datetime
+            FROM "Order"
+            WHERE table_id = ?
+        """;
+
+            try (PreparedStatement psOrder = conn.prepareStatement(orderSql)) {
+                psOrder.setInt(1, table.getId());
+                ResultSet rsOrder = psOrder.executeQuery();
+
+                List<Order> orders = new ArrayList<>();
+                while (rsOrder.next()) {
+                    Order order = new Order();
+                    order.setId(rsOrder.getInt("id"));
+                    order.setReference(rsOrder.getString("reference"));
+                    order.setCreationDatetime(rsOrder.getTimestamp("creation_datetime").toInstant());
+                    order.setInstallationDatetime(rsOrder.getTimestamp("installation_datetime").toInstant());
+                    order.setDepartureDatetime(rsOrder.getTimestamp("departure_datetime").toInstant());
+                    orders.add(order);
+                }
+                table.setOrders(orders);
+            }
+
+            return table;
+
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
 
 
     public class UnitConverter {
@@ -493,4 +626,66 @@ public class DataRetriever {
             return quantity * ingredientMap.get(fromUnit);
         }
     }
+
+    private boolean isTableAvailable(
+            Connection conn,
+            Integer tableId,
+            Instant start,
+            Instant end
+    ) throws SQLException {
+
+        String sql = """
+        SELECT 1
+        FROM "Order"
+        WHERE table_id = ?
+          AND (? < departure_datetime)
+          AND (? > installation_datetime)
+        LIMIT 1
+    """;
+
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, tableId);
+            ps.setTimestamp(2, Timestamp.from(start));
+            ps.setTimestamp(3, Timestamp.from(end));
+
+            ResultSet rs = ps.executeQuery();
+            return !rs.next();
+        }
+    }
+
+
+    List<Integer> findAvailableTableNumbers(
+            Connection conn,
+            Instant start,
+            Instant end
+    ) throws SQLException {
+
+        String sql = """
+        SELECT rt.table_number
+        FROM restaurant_table rt
+        WHERE rt.id NOT IN (
+            SELECT o.table_id
+            FROM "Order" o
+            WHERE (? < o.departure_datetime)
+              AND (? > o.installation_datetime)
+        )
+        ORDER BY rt.table_number
+    """;
+
+        List<Integer> availableTables = new ArrayList<>();
+
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setTimestamp(1, Timestamp.from(start));
+            ps.setTimestamp(2, Timestamp.from(end));
+
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) {
+                availableTables.add(rs.getInt("table_number"));
+            }
+        }
+
+        return availableTables;
+    }
+
+
 }
